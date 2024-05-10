@@ -40,13 +40,19 @@ colors:	.word
 	or	t5, t4, t5
 	lbu	t4, 0x15(s0)
 	slli	t4, t4, 24
-	or	t5, t4, t5
-  
+	or	t5, t4, t5	# number of pixels
+	
+	slli	t4, t5, 1
+	add	t5, t4, t5
+	addi	t5, t5, 3
+	srli	t5, t5, 2
+	slli	t5, t5, 2	# width in bytes
+	
   # Read height -> t6
 	lbu 	t6, 0x16(s0)
 	lbu	t4, 0x17(s0)
 	slli	t4, t4, 8
-	or	t5, t4, t6
+	or	t6, t4, t6
 	lbu	t4, 0x18(s0)
 	slli	t4, t4, 16
 	or	t6, t4, t6
@@ -62,15 +68,17 @@ find_segment_start:
   	addi	s0, s0, 3
   	call	load_RGB
   	beq	a0, s9, find_segment_start
-  	addi	a0, s0, -3
+  	addi	s1, s0, -3	# save sagment start -> s1
+  	add	a0, s1, t5
   	call	color_pixel
 find_segment_end:
 	mv	a0, s0
   	addi	s0, s0, 3
   	call	load_RGB
   	beq	a0, s10, find_segment_end
-  	addi	a0, s0, -6
+  	addi	a0, s0, -6	# save segment end -> s2
   	call	color_pixel
+
   ###############################################################
   # Open test2.bmp
 	li   a7, 1024     # system call for open file
