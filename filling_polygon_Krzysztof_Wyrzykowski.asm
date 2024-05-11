@@ -1,12 +1,35 @@
+        .eqv	READ_STR, 8
         .eqv	SYS_EXIT0, 10
         .data
-file_in: .asciz "shape16.bmp"      # filename for output
-file_out:.asciz "result_shape16.bmp"
+file_in: 	.asciz "shape16.bmp"      # filename for output
+file_out:	.asciz "result_shape16.bmp"
 buf: 	.space 4096
-colors:	.word	
-	0x00000000 # Black
-	0x00FFFFFF # White
-        .text       
+RGB:	.space 7
+	.text
+# Read filling color RGB
+	la	a0, RGB
+	li	a1, 7
+	li	a7, READ_STR
+	ecall
+	li	t0, 6
+	li	t1, '9'
+	li	t3, '0'
+nxtchr:
+	lbu	t2, (a0)
+	addi	a0, a0, 1
+	bleu	t2, t1, dig
+	addi	t2, t2, -55
+	b	add_hex_value
+dig:	
+	sub	t2, t2, t3
+add_hex_value:
+	slli	s11, s11, 4
+	add	s11, s11, t2
+	addi	t0, t0, -1
+	bnez	t0, nxtchr
+	
+	
+	
   ###############################################################
   # Open test.bmp
 	li   a7, 1024     # system call for open file
@@ -29,7 +52,7 @@ colors:	.word
   	la	s0, buf
   	li	s9, 0x00FFFFFF # White
   	li	s10, 0x00000000 # Black
-  	li	s11, 0x00FF0000 # Filling color - temporary blue
+  	#li	s11, 0x00FF0000 # Filling color - temporary blue
   # Read width -> t5
 	lbu 	t5, 0x12(s0)
 	lbu	t4, 0x13(s0)
@@ -251,9 +274,9 @@ load_RGB:
 	ret
 color_pixel:
 	mv	a1, s11
-	sb	a1, 2(a0)
+	sb	a1, (a0)
 	srli	a1, a1, 8
 	sb	a1, 1(a0)
 	srli	a1, a1, 8
-	sb	a1, 0(a0)
+	sb	a1, 2(a0)
 	ret
