@@ -1,7 +1,7 @@
         .eqv	SYS_EXIT0, 10
         .data
-file_in: .asciz "shape1.bmp"      # filename for output
-file_out:.asciz "result_shape1.bmp"
+file_in: .asciz "shape16.bmp"      # filename for output
+file_out:.asciz "result_shape16.bmp"
 buf: 	.space 4096
 colors:	.word	
 	0x00000000 # Black
@@ -27,12 +27,9 @@ colors:	.word
   	ecall             # close file
   ###############################################################
   	la	s0, buf
-  	xor	s5, s5, s5
-  	xor	s6, s6, s6
-  	xor	s7, s7, s7
   	li	s9, 0x00FFFFFF # White
   	li	s10, 0x00000000 # Black
-  	li	s11, 0x00FD0000 # Filling color - temporary blue
+  	li	s11, 0x00FF0000 # Filling color - temporary blue
   # Read width -> t5
 	lbu 	t5, 0x12(s0)
 	lbu	t4, 0x13(s0)
@@ -44,12 +41,15 @@ colors:	.word
 	lbu	t4, 0x15(s0)
 	slli	t4, t4, 24
 	or	t5, t4, t5	# number of pixels
-	
+	mv	t2, t5		# width in pixels
+	slli	t2, t2, 1
+	add	t2, t2, t5	# width of line without trailing zeros
 	slli	t4, t5, 1
 	add	t5, t4, t5
 	addi	t5, t5, 3
 	srli	t5, t5, 2
 	slli	t5, t5, 2	# width in bytes
+	sub	t2, t5, t2	# number of trailing zero bytes
 	
   # Read height -> t6
 	lbu 	t6, 0x16(s0)
@@ -66,8 +66,11 @@ colors:	.word
   ###############################################################
   	addi	s0, s0, 0x36 	# Move pointer to first pixel
   	add	t4, s0, t5
-  	addi	t6, t6, -2
+  	addi	t6, t6, -1
 nxtline:
+	xor	s5, s5, s5	# Reset all points
+  	xor	s6, s6, s6
+  	xor	s7, s7, s7
 	mv	s0, t4
   	add	t4, t4, t5	# Move to next line
   	addi	t6, t6, -1
@@ -76,7 +79,8 @@ nxtsegment:
   	xor	s3, s3, s3	# Top pixels counter
   	xor	s4, s4, s4	# Bottom pixels counter
 find_segment_start:
-	bgeu	s0, t4, nxtline
+	add	t3, s0, t2
+	bgeu	t3, t4, nxtline
   	mv	a0, s0
   	addi	s0, s0, 3
   	call	load_RGB
@@ -90,14 +94,16 @@ find_segment_end:
   	addi	s2, s0, -6	# save segment end -> s2
 ################################################################
 #Count pixels
-	add	a0, s1, t5	# top-middle start segment
+	add	a0, s1, t5	# top-left start segment
+	addi	a0, a0, -3
+	bltu	a0, t4, top_middle_start
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
 	xori	a1, a1, 1
 	add	s3, s3, a1
-	add	a0, s1, t5	# top-left start segment
-	addi	a0, a0, -3
+top_middle_start:
+	add	a0, s1, t5	# top-middle start segment
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
@@ -110,14 +116,16 @@ find_segment_end:
 	andi	a1, a0, 1
 	xori	a1, a1, 1
 	add	s3, s3, a1
-	add	a0, s2, t5	# top-middle end segment
+	add	a0, s2, t5	# top-left end segment
+	addi	a0, a0, -3
+	bltu	a0, t4, top_middle_end
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
 	xori	a1, a1, 1
 	add	s3, s3, a1
-	add	a0, s2, t5	# top-left end segment
-	addi	a0, a0, -3
+top_middle_end:
+	add	a0, s2, t5	# top-middle end segment
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
@@ -144,32 +152,39 @@ find_segment_end:
 	xori	a1, a1, 1
 	add	s4, s4, a1
 	sub	a0, s1, t5	# bottom-right start segment
-	addi	a0, a0, 3
-	#call 	color_pixel
-	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
-	sub	a0, s2, t5	# bottom-middle end segment
-	#call 	color_pixel
-	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
-	sub	a0, s2, t5	# bottom-left end segment
+	addi	a0, a0, 6
+	bgeu	a0, t5, bottom_middle_end
 	addi	a0, a0, -3
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
 	xori	a1, a1, 1
 	add	s4, s4, a1
-	sub	a0, s2, t5	# bottom-right end segment
-	addi	a0, a0, 3
+bottom_middle_end:
+	sub	a0, s2, t5	# bottom-middle end segment
 	#call 	color_pixel
 	call	load_RGB
 	andi	a1, a0, 1
 	xori	a1, a1, 1
 	add	s4, s4, a1
+	sub	a0, s2, t5	# bottom-right end segment
+	addi	a0, a0, 6
+	bgeu	a0, t5, bottom_left_end
+	addi	a0, a0, -3
+	#call 	color_pixel
+	call	load_RGB
+	andi	a1, a0, 1
+	xori	a1, a1, 1
+	add	s4, s4, a1
+	sub	a0, s2, t5	# bottom-left end segment
+bottom_left_end:
+	addi	a0, a0, -3
+	#call 	color_pixel
+	call	load_RGB
+	andi	a1, a0, 1
+	xori	a1, a1, 1
+	add	s4, s4, a1
+	
 #################################################################
 	beqz	s3, double_segment
 	beqz	s4, double_segment
@@ -191,6 +206,9 @@ save_to_second_and_third_points:
 fill_between:
 	beqz	s6, nxtsegment
 	addi	s5, s5, 3
+	mv	a0, s5
+	call	load_RGB
+	beq	a0, s10, filled
 	bgeu	s5, s6, filled
 	mv	a0, s5
 	call	color_pixel
@@ -239,26 +257,3 @@ color_pixel:
 	srli	a1, a1, 8
 	sb	a1, 0(a0)
 	ret
-# Read width -> t5
-  lbu 	t5, 18(s0)
-  lbu	t4, 19(s0)
-  slli	t4, t4, 8
-  or	t5, t4, t5
-  lbu	t4, 20(s0)
-  slli	t4, t4, 16
-  or	t5, t4, t5
-  lbu	t4, 20(s0)
-  slli	t4, t4, 24
-  or	t5, t4, t5
-  
-  # Read height -> t6
-  lbu 	t6, 22(s0)
-  lbu	t4, 23(s0)
-  slli	t4, t4, 8
-  or	t5, t4, t6
-  lbu	t4, 24(s0)
-  slli	t4, t4, 16
-  or	t6, t4, t6
-  lbu	t4, 25(s0)
-  slli	t4, t4, 24
-  or	t6, t4, t6
