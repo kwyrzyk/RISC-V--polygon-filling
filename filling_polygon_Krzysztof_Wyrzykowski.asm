@@ -1,9 +1,10 @@
         .eqv	READ_STR, 8
+        .eqv	ALLOCATE_MEMORY, 9
         .eqv	SYS_EXIT0, 10
         .data
-file_in: 	.asciz "shape16.bmp"      # filename for output
-file_out:	.asciz "result_shape16.bmp"
-buf: 	.space 4096
+file_in: 	.asciz "shape18.bmp"      # filename for output
+file_out:	.asciz "result_shape18.bmp"
+buf: 	.space 1000000
 RGB:	.space 7
 	.text
 # Read filling color RGB
@@ -42,7 +43,7 @@ add_hex_value:
   	li   a7, 63       # system call for read from file
   	mv   a0, s6       # file descriptor
   	la   a1, buf      # address of buffer from which to write
-  	li   a2, 4096     # hardcoded buffer length
+  	li   a2, 1000000     # hardcoded buffer length
   	ecall             # write to file
   # Close test.bmp
   	li   a7, 57       # system call for close file
@@ -94,8 +95,8 @@ nxtline:
 	xor	s5, s5, s5	# Reset all points
   	xor	s6, s6, s6
   	xor	s7, s7, s7
-	mv	s0, t4
-  	add	t4, t4, t5	# Move to next line
+	mv	s0, t4		# Move to next line
+  	add	t4, t4, t5	# Save nexr line adress -> t4
   	addi	t6, t6, -1
   	beqz	t6, fin
 nxtsegment:
@@ -120,95 +121,69 @@ find_segment_end:
 	add	a0, s1, t5	# top-left start segment
 	addi	a0, a0, -3
 	bltu	a0, t4, top_middle_start
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	beq	a0, s10, found_top_pixel
 top_middle_start:
 	add	a0, s1, t5	# top-middle start segment
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	beq	a0, s10, found_top_pixel
 	add	a0, s1, t5	# top-right start segment
 	addi	a0, a0, 3
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	beq	a0, s10, found_top_pixel
 	add	a0, s2, t5	# top-left end segment
 	addi	a0, a0, -3
 	bltu	a0, t4, top_middle_end
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	beq	a0, s10, found_top_pixel
 top_middle_end:
 	add	a0, s2, t5	# top-middle end segment
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	beq	a0, s10, found_top_pixel
 	add	a0, s2, t5	# top-right end segment
 	addi	a0, a0, 3
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s3, s3, a1
+	bne	a0, s10, bottom_middle_start
+found_top_pixel:
+	not	s3, s3
+bottom_middle_start:
 	sub	a0, s1, t5	# bottom-middle start segment
 	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
+	beq	a0, s10, found_bottom_pixel
 	sub	a0, s1, t5	# bottom-left start segment
 	addi	a0, a0, -3
 	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
+	beq	a0, s10, found_bottom_pixel
 	sub	a0, s1, t5	# bottom-right start segment
 	addi	a0, a0, 6
 	bgeu	a0, t5, bottom_middle_end
 	addi	a0, a0, -3
-	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
+	beq	a0, s10, found_bottom_pixel
 bottom_middle_end:
 	sub	a0, s2, t5	# bottom-middle end segment
 	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
+	beq	a0, s10, found_bottom_pixel
 	sub	a0, s2, t5	# bottom-right end segment
 	addi	a0, a0, 6
 	bgeu	a0, t5, bottom_left_end
 	addi	a0, a0, -3
 	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
+	beq	a0, s10, found_bottom_pixel
 	sub	a0, s2, t5	# bottom-left end segment
 bottom_left_end:
 	addi	a0, a0, -3
 	#call 	color_pixel
 	call	load_RGB
-	andi	a1, a0, 1
-	xori	a1, a1, 1
-	add	s4, s4, a1
-	
+	bne	a0, s10, save_points
+found_bottom_pixel:
+	not	s4, s4
 #################################################################
+save_points:
 	beqz	s3, double_segment
 	beqz	s4, double_segment
 single_segment:
@@ -253,7 +228,7 @@ fin:
 	li   a7, 64       # system call for write to file
 	mv   a0, s6       # file descriptor
 	la   a1, buf   # address of buffer from which to write
-	li   a2, 4096       # hardcoded buffer length
+	li   a2, 1000000       # hardcoded buffer length
 	ecall             # write to file
    # Close test2.bmp
 	li   a7, 57       # system call for close file
