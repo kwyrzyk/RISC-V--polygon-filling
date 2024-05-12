@@ -43,7 +43,7 @@ add_hex_value:
   	li   a7, 63       # system call for read from file
   	mv   a0, s6       # file descriptor
   	la   a1, buf      # address of buffer from which to write
-  	li   a2, 1000000     # hardcoded buffer length
+  	li   a2,      # hardcoded buffer length
   	ecall             # write to file
   # Close test.bmp
   	li   a7, 57       # system call for close file
