@@ -1,24 +1,46 @@
+        .eqv	PRINT_STR, 4
         .eqv	READ_STR, 8
         .eqv	ALLOCATE_MEMORY, 9
         .eqv	SYS_EXIT0, 10
         .data
-file_in: 	.asciz "shape18.bmp"      # filename for output
-file_out:	.asciz "result_shape18.bmp"
-buf: 	.space 1000000
+enter_file_path:.asciz "Enter path to your file: "
+enter_RGB:	.asciz "Enter color you want to fill polygon in RGB format: "
+header: .space 54
 RGB:	.space 7
+file: 	.space 100
 	.text
+# Ask for file path
+	la	a0, enter_file_path
+	li	a7, PRINT_STR
+	ecall
+# Read path
+	la	a0, file
+	li	a1, 100
+	li	a7, READ_STR
+	ecall
+# Remove enter
+	li	t1, '\n'
+rem_enter:
+	lbu	t0, (a0)
+	addi	a0, a0, 1
+	bne	t0, t1, rem_enter
+	sb	zero, -1(a0)
+# Ask for RGB
+	la	a0, enter_RGB
+	li	a7, PRINT_STR
+	ecall
 # Read filling color RGB
 	la	a0, RGB
 	li	a1, 7
 	li	a7, READ_STR
 	ecall
 	li	t0, 6
-	li	t1, '9'
+	li	a6, '9'
 	li	t3, '0'
 nxtchr:
 	lbu	t2, (a0)
 	addi	a0, a0, 1
-	bleu	t2, t1, dig
+	bleu	t2, a6, dig
 	addi	t2, t2, -55
 	b	add_hex_value
 dig:	
@@ -28,33 +50,21 @@ add_hex_value:
 	add	s11, s11, t2
 	addi	t0, t0, -1
 	bnez	t0, nxtchr
-	
-	
-	
-  ###############################################################
-  # Open test.bmp
-	li   a7, 1024     # system call for open file
-  	la   a0, file_in  # output file name
-  	li   a1, 0        # Open for reading 
-  	ecall             # open a file (file descriptor returned in a0)
+# Open file
+	li   a7, 1024     
+  	la   a0, file 
+  	li   a1, 0         
+  	ecall             # Open file
   	mv   s6, a0       # save the file descriptor
-  ###############################################################
-  # Read test.bmp
-  	li   a7, 63       # system call for read from file
-  	mv   a0, s6       # file descriptor
-  	la   a1, buf      # address of buffer from which to write
-  	li   a2,      # hardcoded buffer length
-  	ecall             # write to file
-  # Close test.bmp
-  	li   a7, 57       # system call for close file
-  	mv   a0, s6       # file descriptor to close
-  	ecall             # close file
-  ###############################################################
-  	la	s0, buf
-  	li	s9, 0x00FFFFFF # White
-  	li	s10, 0x00000000 # Black
-  	#li	s11, 0x00FF0000 # Filling color - temporary blue
-  # Read width -> t5
+# Read file header
+
+  	mv   a0, s6       
+  	la   a1, header      
+  	li   a2, 54    
+  	li   a7, 63      
+  	ecall             # Read header
+# Read file width -> t5 ( in bytes)
+	la	s0, header
 	lbu 	t5, 0x12(s0)
 	lbu	t4, 0x13(s0)
 	slli	t4, t4, 8
@@ -64,8 +74,8 @@ add_hex_value:
 	or	t5, t4, t5
 	lbu	t4, 0x15(s0)
 	slli	t4, t4, 24
-	or	t5, t4, t5	# number of pixels
-	mv	t2, t5		# width in pixels
+	or	t5, t4, t5	# width in pixels
+	mv	t2, t5		
 	slli	t2, t2, 1
 	add	t2, t2, t5	# width of line without trailing zeros
 	slli	t4, t5, 1
@@ -73,9 +83,8 @@ add_hex_value:
 	addi	t5, t5, 3
 	srli	t5, t5, 2
 	slli	t5, t5, 2	# width in bytes
-	sub	t2, t5, t2	# number of trailing zero bytes
-	
-  # Read height -> t6
+	sub	t2, t5, t2	# number of trailing zero bytes	
+# Read file height -> t6 
 	lbu 	t6, 0x16(s0)
 	lbu	t4, 0x17(s0)
 	slli	t4, t4, 8
@@ -86,17 +95,43 @@ add_hex_value:
 	lbu	t4, 0x19(s0)
 	slli	t4, t4, 24
 	or	t6, t4, t6
-	
-  ###############################################################
-  	addi	s0, s0, 0x36 	# Move pointer to first pixel
-  	add	t4, s0, t5
+# Calculate bitmap size -> t0
+	mul	t0, t5, t6
+	addi	t0, t0, 54
+	mv	a0, t0
+# Allocate space for file
+	li	a7, ALLOCATE_MEMORY
+	ecall
+	mv	a6, a0 # save buffor address
+# Seek to 0 byte
+	mv	a0, s6
+	li	a1, 0
+	li	a2, 0
+	li	a7, 62
+	ecall
+# Read file
+  	li   a7, 63    
+  	mv   a0, s6       
+  	mv   a1, a6       
+  	mv   a2, t0       
+  	ecall             # Read from file
+# Close file
+  	li   a7, 57
+  	mv   a0, s6
+  	ecall             # close file
+# Define white and black
+  	mv	t4, a6
+  	addi	t4, t4, 54
+  	add	t4, t4, t5
   	addi	t6, t6, -1
+  	li	s9, 0x00FFFFFF # White
+  	li	s10, 0x00000000 # Black
 nxtline:
 	xor	s5, s5, s5	# Reset all points
   	xor	s6, s6, s6
   	xor	s7, s7, s7
 	mv	s0, t4		# Move to next line
-  	add	t4, t4, t5	# Save nexr line adress -> t4
+  	add	t4, t4, t5	# Next line adress -> t4
   	addi	t6, t6, -1
   	beqz	t6, fin
 nxtsegment:
@@ -116,7 +151,6 @@ find_segment_end:
   	call	load_RGB
   	beq	a0, s10, find_segment_end
   	addi	s2, s0, -6	# save segment end -> s2
-################################################################
 #Count pixels
 	add	a0, s1, t5	# top-left start segment
 	addi	a0, a0, -3
@@ -148,12 +182,10 @@ found_top_pixel:
 	not	s3, s3
 bottom_middle_start:
 	sub	a0, s1, t5	# bottom-middle start segment
-	#call 	color_pixel
 	call	load_RGB
 	beq	a0, s10, found_bottom_pixel
 	sub	a0, s1, t5	# bottom-left start segment
 	addi	a0, a0, -3
-	#call 	color_pixel
 	call	load_RGB
 	beq	a0, s10, found_bottom_pixel
 	sub	a0, s1, t5	# bottom-right start segment
@@ -164,25 +196,21 @@ bottom_middle_start:
 	beq	a0, s10, found_bottom_pixel
 bottom_middle_end:
 	sub	a0, s2, t5	# bottom-middle end segment
-	#call 	color_pixel
 	call	load_RGB
 	beq	a0, s10, found_bottom_pixel
 	sub	a0, s2, t5	# bottom-right end segment
 	addi	a0, a0, 6
 	bgeu	a0, t5, bottom_left_end
 	addi	a0, a0, -3
-	#call 	color_pixel
 	call	load_RGB
 	beq	a0, s10, found_bottom_pixel
 	sub	a0, s2, t5	# bottom-left end segment
 bottom_left_end:
 	addi	a0, a0, -3
-	#call 	color_pixel
 	call	load_RGB
 	bne	a0, s10, save_points
 found_bottom_pixel:
 	not	s4, s4
-#################################################################
 save_points:
 	beqz	s3, double_segment
 	beqz	s4, double_segment
@@ -216,25 +244,23 @@ filled:
 	xor	s6, s6, s6
 	xor	s7, s7, s7
 	b	nxtsegment
-###############################################################
 fin:
-  # Open test2.bmp
+  # Open file
 	li   a7, 1024     # system call for open file
-	la   a0, file_out     # output file name
+	la   a0, file     # output file name
 	li   a1, 1        # Open for writing (flags are 0: read, 1: write)
 	ecall             # open a file (file descriptor returned in a0)
 	mv   s6, a0       # save the file descriptor
-  # Write test2.bmp
-	li   a7, 64       # system call for write to file
-	mv   a0, s6       # file descriptor
-	la   a1, buf   # address of buffer from which to write
-	li   a2, 1000000       # hardcoded buffer length
+  # Write to file
+	li   a7, 64      
+	mv   a0, s6   
+	mv   a1, a6   
+	mv   a2, t0       
 	ecall             # write to file
-   # Close test2.bmp
-	li   a7, 57       # system call for close file
-	mv   a0, s6       # file descriptor to close
+   # Close file
+	li   a7, 57       
+	mv   a0, s6       
 	ecall             # close file
-###############################################################
   	li	a7, SYS_EXIT0
 	ecall
 load_RGB:
