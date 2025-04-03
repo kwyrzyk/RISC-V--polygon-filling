@@ -2,9 +2,15 @@
         .eqv	READ_STR, 8
         .eqv	ALLOCATE_MEMORY, 9
         .eqv	SYS_EXIT0, 10
+        .eqv	CLOSE_FILE, 57
+        .eqv	SEEK, 62
+        .eqv	READ_FILE, 63
+        .eqv 	WRITE_FILE, 64
+        .eqv	OPEN_FILE, 1024
         .data
 enter_file_path:.asciz "Enter path to your file: "
 enter_RGB:	.asciz "Enter color you want to fill polygon in RGB format: "
+file_out: 	.asciz "result.bmp"
 header: .space 54
 RGB:	.space 7
 file: 	.space 100
@@ -50,18 +56,18 @@ add_hex_value:
 	add	s11, s11, t2
 	addi	t0, t0, -1
 	bnez	t0, nxtchr
-# Open file
-	li   a7, 1024     
-  	la   a0, file 
-  	li   a1, 0         
+# Open file   
+  	la   	a0, file 
+  	li   	a1, 0      
+  	li   	a7, OPEN_FILE    
   	ecall             # Open file
-  	mv   s6, a0       # save the file descriptor
+  	mv   	s6, a0       # save the file descriptor
 # Read file header
 
-  	mv   a0, s6       
-  	la   a1, header      
-  	li   a2, 54    
-  	li   a7, 63      
+  	mv   	a0, s6       
+  	la   	a1, header      
+  	li   	a2, 54    
+  	li   	a7, READ_FILE     
   	ecall             # Read header
 # Read file width -> t5 ( in bytes)
 	la	s0, header
@@ -107,18 +113,18 @@ add_hex_value:
 	mv	a0, s6
 	li	a1, 0
 	li	a2, 0
-	li	a7, 62
+	li	a7, SEEK
 	ecall
 # Read file
-  	li   a7, 63    
-  	mv   a0, s6       
-  	mv   a1, a6       
-  	mv   a2, t0       
-  	ecall             # Read from file
+  	li   	a7, 63    
+  	mv   	a0, s6       
+  	mv   	a1, a6       
+  	mv   	a2, t0       
+  	ecall
 # Close file
-  	li   a7, 57
-  	mv   a0, s6
-  	ecall             # close file
+  	li   	a7, 57
+  	mv   	a0, s6
+  	ecall
 # Define white and black
   	mv	t4, a6
   	addi	t4, t4, 54
@@ -127,16 +133,16 @@ add_hex_value:
   	li	s9, 0x00FFFFFF # White
   	li	s10, 0x00000000 # Black
 nxtline:
-	xor	s5, s5, s5	# Reset all points
-  	xor	s6, s6, s6
-  	xor	s7, s7, s7
+	mv	s5, zero	# Reset all points
+  	mv	s6, zero
+  	mv	s7, zero
 	mv	s0, t4		# Move to next line
   	add	t4, t4, t5	# Next line adress -> t4
   	addi	t6, t6, -1
   	beqz	t6, fin
 nxtsegment:
-  	xor	s3, s3, s3	# Top pixels counter
-  	xor	s4, s4, s4	# Bottom pixels counter
+  	mv	s3, zero	# Top pixels counter
+  	mv	s4, zero	# Bottom pixels counter
 find_segment_start:
 	add	t3, s0, t2
 	bgeu	t3, t4, nxtline
@@ -190,7 +196,7 @@ bottom_middle_start:
 	beq	a0, s10, found_bottom_pixel
 	sub	a0, s1, t5	# bottom-right start segment
 	addi	a0, a0, 6
-	bgeu	a0, t5, bottom_middle_end
+	bgeu	a0, t4, bottom_middle_end
 	addi	a0, a0, -3
 	call	load_RGB
 	beq	a0, s10, found_bottom_pixel
@@ -241,25 +247,26 @@ fill_between:
 	b	fill_between
 filled:
 	mv	s5, s7
-	xor	s6, s6, s6
-	xor	s7, s7, s7
+	mv	s6, zero
+	mv	s7, zero
 	b	nxtsegment
 fin:
   # Open file
-	li   a7, 1024     # system call for open file
+	li  	a7, 1024     # system call for open file
 	la   a0, file     # output file name
-	li   a1, 1        # Open for writing (flags are 0: read, 1: write)
+	#la	a0, file_out
+	li  	a1, 1        # Open for writing (flags are 0: read, 1: write)
 	ecall             # open a file (file descriptor returned in a0)
-	mv   s6, a0       # save the file descriptor
+	mv   	s6, a0       # save the file descriptor
   # Write to file
-	li   a7, 64      
-	mv   a0, s6   
-	mv   a1, a6   
-	mv   a2, t0       
+	li  	a7, WRITE_FILE     
+	mv   	a0, s6   
+	mv   	a1, a6   
+	mv   	a2, t0       
 	ecall             # write to file
    # Close file
-	li   a7, 57       
-	mv   a0, s6       
+	li   	a7, CLOSE_FILE      
+	mv   	a0, s6       
 	ecall             # close file
   	li	a7, SYS_EXIT0
 	ecall
